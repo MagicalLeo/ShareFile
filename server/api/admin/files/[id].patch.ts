@@ -1,4 +1,5 @@
 import { createError, readBody } from 'h3'
+import bcrypt from 'bcrypt'
 import { query } from '../../../utils/db'
 
 export default defineEventHandler(async (event) => {
@@ -18,6 +19,7 @@ export default defineEventHandler(async (event) => {
     const updates: string[] = []
     const values: any[] = []
     let paramIndex = 1
+    let newPassword: string | null = null
 
     if (typeof body.isEnabled === 'boolean') {
       updates.push(`is_enabled = $${paramIndex++}`)
@@ -27,6 +29,14 @@ export default defineEventHandler(async (event) => {
     if (body.downloadLimit !== undefined) {
       updates.push(`download_limit = $${paramIndex++}`)
       values.push(body.downloadLimit === null ? null : parseInt(body.downloadLimit, 10))
+    }
+
+    // Handle password reset
+    if (body.newPassword) {
+      newPassword = body.newPassword
+      const passwordHash = await bcrypt.hash(newPassword, 10)
+      updates.push(`password_hash = $${paramIndex++}`)
+      values.push(passwordHash)
     }
 
     if (updates.length === 0) {
@@ -50,7 +60,7 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    return {
+    const response: any = {
       success: true,
       file: {
         id: result.rows[0].id,
@@ -58,6 +68,13 @@ export default defineEventHandler(async (event) => {
         downloadLimit: result.rows[0].download_limit
       }
     }
+
+    // Include new password in response if it was reset
+    if (newPassword) {
+      response.newPassword = newPassword
+    }
+
+    return response
   } catch (error: any) {
     if (error.statusCode) {
       throw error

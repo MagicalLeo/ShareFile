@@ -19,6 +19,9 @@ const isLoading = ref(true)
 const deleteConfirm = ref<string | null>(null)
 const copiedId = ref<string | null>(null)
 const searchQuery = ref('')
+const resetPasswordModal = ref<{ id: string, fileName: string } | null>(null)
+const newPassword = ref<string | null>(null)
+const isResettingPassword = ref(false)
 
 const filteredFiles = computed(() => {
   if (!searchQuery.value) return files.value
@@ -104,6 +107,71 @@ const getDownloadStatus = (file: FileInfo) => {
 
 const isLimitReached = (file: FileInfo) => {
   return file.downloadLimit !== null && file.downloadCount >= file.downloadLimit
+}
+
+const generatePassword = () => {
+  const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  const lowercase = 'abcdefghijklmnopqrstuvwxyz'
+  const numbers = '0123456789'
+  const allChars = uppercase + lowercase + numbers
+
+  let result = ''
+  result += uppercase.charAt(Math.floor(Math.random() * uppercase.length))
+  result += lowercase.charAt(Math.floor(Math.random() * lowercase.length))
+  result += numbers.charAt(Math.floor(Math.random() * numbers.length))
+
+  for (let i = 0; i < 5; i++) {
+    result += allChars.charAt(Math.floor(Math.random() * allChars.length))
+  }
+
+  return result.split('').sort(() => Math.random() - 0.5).join('')
+}
+
+const openResetPasswordModal = (file: FileInfo) => {
+  resetPasswordModal.value = { id: file.id, fileName: file.fileName }
+  newPassword.value = null
+}
+
+const closeResetPasswordModal = () => {
+  resetPasswordModal.value = null
+  newPassword.value = null
+}
+
+const resetPassword = async () => {
+  if (!resetPasswordModal.value) return
+
+  isResettingPassword.value = true
+  try {
+    const generatedPassword = generatePassword()
+    const response = await fetch(`/api/admin/files/${resetPasswordModal.value.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ newPassword: generatedPassword })
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      newPassword.value = data.newPassword
+    }
+  } catch (error) {
+    console.error('Failed to reset password:', error)
+  } finally {
+    isResettingPassword.value = false
+  }
+}
+
+const copyNewPassword = async () => {
+  if (newPassword.value) {
+    await navigator.clipboard.writeText(newPassword.value)
+  }
+}
+
+const copyNewLink = async () => {
+  if (resetPasswordModal.value && newPassword.value) {
+    const downloadHost = useRuntimeConfig().public.downloadHost || window.location.origin
+    const link = `${downloadHost}/download/${resetPasswordModal.value.id}?pwd=${newPassword.value}`
+    await navigator.clipboard.writeText(link)
+  }
 }
 
 onMounted(fetchFiles)
@@ -196,6 +264,13 @@ onMounted(fetchFiles)
                 >
                   <Icon :name="copiedId === file.id ? 'lucide:check' : 'lucide:link'" size="14" />
                 </button>
+                <button
+                  class="action-btn"
+                  title="Reset Password"
+                  @click="openResetPasswordModal(file)"
+                >
+                  <Icon name="lucide:key" size="14" />
+                </button>
                 <NuxtLink
                   :to="`/admin/logs?fileId=${file.id}`"
                   class="action-btn"
@@ -224,6 +299,65 @@ onMounted(fetchFiles)
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- Reset Password Modal -->
+    <div v-if="resetPasswordModal" class="modal-overlay" @click.self="closeResetPasswordModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>Reset Password</h3>
+          <button class="modal-close" @click="closeResetPasswordModal">
+            <Icon name="lucide:x" size="20" />
+          </button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-file-name">{{ resetPasswordModal.fileName }}</p>
+
+          <template v-if="!newPassword">
+            <p class="modal-warning">
+              <Icon name="lucide:alert-triangle" size="16" />
+              This will generate a new password. The old password will no longer work.
+            </p>
+            <button
+              class="btn btn-primary btn-block"
+              :disabled="isResettingPassword"
+              @click="resetPassword"
+            >
+              <template v-if="isResettingPassword">
+                <Icon name="lucide:loader-2" size="18" class="spinner" />
+                Resetting...
+              </template>
+              <template v-else>
+                <Icon name="lucide:key" size="18" />
+                Generate New Password
+              </template>
+            </button>
+          </template>
+
+          <template v-else>
+            <div class="new-password-result">
+              <Icon name="lucide:check-circle" size="24" class="success-icon" />
+              <p>Password has been reset!</p>
+            </div>
+            <div class="result-item">
+              <label>New Password</label>
+              <div class="result-value">
+                <code>{{ newPassword }}</code>
+                <button @click="copyNewPassword" title="Copy Password">
+                  <Icon name="lucide:copy" size="16" />
+                </button>
+              </div>
+            </div>
+            <div class="result-item">
+              <label>New Link (with password)</label>
+              <button class="btn btn-secondary btn-block btn-sm" @click="copyNewLink">
+                <Icon name="lucide:link" size="16" />
+                Copy Full Link
+              </button>
+            </div>
+          </template>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -436,5 +570,135 @@ onMounted(fetchFiles)
   background: var(--color-error);
   border-color: var(--color-error);
   color: white;
+}
+
+/* Modal styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  width: 90%;
+  max-width: 400px;
+  box-shadow: var(--shadow-lg);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.modal-header h3 {
+  font-size: var(--font-md);
+  margin: 0;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  padding: 4px;
+}
+
+.modal-close:hover {
+  color: var(--color-text);
+}
+
+.modal-body {
+  padding: var(--spacing-md);
+}
+
+.modal-file-name {
+  font-weight: 500;
+  color: var(--color-text);
+  margin-bottom: var(--spacing-md);
+  word-break: break-all;
+}
+
+.modal-warning {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm);
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--color-error);
+  border-radius: var(--radius-md);
+  font-size: var(--font-sm);
+  margin-bottom: var(--spacing-md);
+}
+
+.new-password-result {
+  text-align: center;
+  margin-bottom: var(--spacing-md);
+}
+
+.new-password-result .success-icon {
+  color: var(--color-success);
+  margin-bottom: var(--spacing-xs);
+}
+
+.new-password-result p {
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.result-item {
+  margin-bottom: var(--spacing-md);
+}
+
+.result-item label {
+  display: block;
+  font-size: var(--font-xs);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.result-value {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.result-value code {
+  flex: 1;
+  padding: var(--spacing-sm);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-family: monospace;
+  font-size: var(--font-md);
+}
+
+.result-value button {
+  padding: var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.result-value button:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.btn-sm {
+  padding: 8px 12px;
+  font-size: var(--font-sm);
 }
 </style>

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import QRCode from 'qrcode'
+
 definePageMeta({
   layout: 'admin'
 })
@@ -13,6 +15,7 @@ interface UploadResult {
 }
 
 const file = ref<File | null>(null)
+const qrCodeDataUrl = ref<string>('')
 const password = ref('')
 const downloadLimit = ref<string>('')
 const isUploading = ref(false)
@@ -97,6 +100,20 @@ const handleUpload = async () => {
     data.downloadUrl = data.downloadUrl.replace(/https?:\/\/[^\/]+/, downloadHost)
     data.downloadUrlWithPassword = data.downloadUrlWithPassword.replace(/https?:\/\/[^\/]+/, downloadHost)
     uploadResult.value = data
+
+    // Generate QR code
+    try {
+      qrCodeDataUrl.value = await QRCode.toDataURL(data.downloadUrlWithPassword, {
+        width: 200,
+        margin: 2,
+        color: {
+          dark: '#1A1A1A',
+          light: '#FFFFFF'
+        }
+      })
+    } catch (qrErr) {
+      console.error('QR code generation failed:', qrErr)
+    }
   } catch (err: any) {
     error.value = err.message || 'Failed to upload file'
   } finally {
@@ -122,6 +139,7 @@ const resetForm = () => {
   downloadLimit.value = ''
   uploadResult.value = null
   error.value = ''
+  qrCodeDataUrl.value = ''
 }
 </script>
 
@@ -214,6 +232,14 @@ const resetForm = () => {
             <button @click="copyToClipboard(uploadResult.downloadUrlWithPassword, 'fullUrl')">
               <Icon :name="copiedField === 'fullUrl' ? 'lucide:check' : 'lucide:copy'" size="18" />
             </button>
+          </div>
+        </div>
+
+        <div v-if="qrCodeDataUrl" class="qr-section">
+          <label class="share-label">QR Code</label>
+          <p class="share-hint">Scan to download (password included)</p>
+          <div class="qr-code-container">
+            <img :src="qrCodeDataUrl" alt="QR Code" class="qr-code" />
           </div>
         </div>
 
@@ -415,5 +441,25 @@ const resetForm = () => {
   flex: 1;
   height: 1px;
   background: var(--color-border);
+}
+
+.qr-section {
+  margin-bottom: var(--spacing-lg);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.qr-code-container {
+  display: flex;
+  justify-content: center;
+  padding: var(--spacing-md);
+  background: white;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+
+.qr-code {
+  width: 200px;
+  height: 200px;
 }
 </style>
