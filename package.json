@@ -1,0 +1,34 @@
+{
+  "name": "sharefile",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "dev:dual": "node server.js",
+    "start": "node server.prod.js",
+    "start:dual": "node server.prod.js",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "formidable": "^3.5.2",
+    "http-proxy": "^1.18.1",
+    "nuxt": "^3.14.0",
+    "pg": "^8.13.0",
+    "uuid": "^11.0.0",
+    "vue": "^3.5.0",
+    "vue-router": "^4.4.0"
+  },
+  "devDependencies": {
+    "@iconify-json/lucide": "^1.2.0",
+    "@nuxt/icon": "^1.8.0",
+    "@types/bcrypt": "^5.0.2",
+    "@types/formidable": "^3.4.5",
+    "@types/pg": "^8.11.0",
+    "@types/uuid": "^10.0.0"
+  }
+}
