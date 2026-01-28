@@ -3,7 +3,7 @@
 A self-hosted, password-protected file sharing system. Simple, secure, and easy to deploy.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
 [![Nuxt](https://img.shields.io/badge/Nuxt-3-00DC82.svg)](https://nuxt.com/)
 
 ## Why ShareFile?
@@ -24,9 +24,10 @@ ShareFile is different:
 **Core**
 - Password-protected file uploads and downloads
 - Auto-generated secure passwords
-- Shareable download links
+- Shareable download links with QR code (scan to download)
 - File enable/disable toggle
 - Download count limits
+- Password reset for existing files
 
 **Security**
 - Passwords stored as bcrypt hashes (not plaintext)
